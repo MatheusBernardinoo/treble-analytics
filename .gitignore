@@ -1,0 +1,23 @@
+# Credenciais locais — NUNCA versionar
+credenciais.md
+
+# Dados brutos e saídas geradas em runtime (na raiz do projeto)
+/analises/
+/graficos/
+/Dados_Treble_Semana.xlsx
+/relatorio_treble_semanal.xlsx
+/relatorio_equipe_periodo.xlsx
+/Relatório*.html
+
+# Python
+__pycache__/
+*.py[cod]
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# NOTA: a pasta exemplo/ (dados fictícios + relatório-demo) É versionada de
+# propósito. Os padrões acima são ancorados na raiz (/) e não afetam exemplo/.
