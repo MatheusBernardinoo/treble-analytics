@@ -10,6 +10,7 @@
 
 ## Índice
 - [O que este projeto faz](#o-que-este-projeto-faz)
+- [Formas de uso](#formas-de-uso)
 - [Ver funcionando em 2 minutos (offline)](#ver-funcionando-em-2-minutos-offline)
 - [Requisitos](#requisitos)
 - [Configuração inicial](#configuração-inicial)
@@ -38,6 +39,24 @@ Dois tipos de relatório:
 
 > **Escopo:** este template vai **até gerar e validar o relatório**. Upload e distribuição são
 > manuais, feitos pelo operador — o projeto não envia e-mail nem mensagens.
+
+---
+
+## Formas de uso
+
+O pipeline é modular: você entra na etapa que precisar. Da coleta automática ao só rodar a análise
+sobre dados que já tem.
+
+| Forma de uso | O que o projeto faz | Você precisa de |
+|---|---|---|
+| **1. Completo — coleta a relatório** | Coleta os dados direto na Treble e na Treble Sales, unifica, analisa e gera o relatório | Claude Code + extensão Chrome + credenciais |
+| **2. A partir dos dados brutos** | Você já exportou os arquivos da Treble; o projeto unifica, analisa e gera o relatório | Python + os arquivos brutos exportados |
+| **3. A partir do arquivo unificado** | Você já tem o `Dados_Treble_Semana.xlsx`; roda só a análise e a geração do relatório | Python + o arquivo unificado |
+| **4. Demonstração (offline)** | Roda o pipeline de análise sobre o dataset fictício de `exemplo/`, sem coleta | Só Python |
+
+A forma **1** é operada por prompts (ver [Como operar](#como-operar-via-prompts)); as formas **2**,
+**3** e **4** são comandos diretos (ver [Rodar os scripts manualmente](#rodar-os-scripts-manualmente)
+e [Ver funcionando em 2 minutos](#ver-funcionando-em-2-minutos-offline)).
 
 ---
 
@@ -96,7 +115,7 @@ email: seu.email@empresa.com
 senha: sua_senha
 
 ## Treble Sales — sales.treble.ai
-email: email.da.conta.do.cliente
+email: seu.email@empresa.com
 senha: sua_senha
 ```
 
