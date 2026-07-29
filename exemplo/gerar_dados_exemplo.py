@@ -41,8 +41,9 @@ def telefone(i):
 def ts(dt):
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-# Pool de telefones (contatos). Os primeiros são compartilhados entre as abas.
-N_CONTATOS = 70
+# Pool de telefones (contatos). Os primeiros N_ATEND são compartilhados com o
+# atendimento (contatos que chegaram a um vendedor).
+N_CONTATOS = 160
 telefones = [telefone(i) for i in range(N_CONTATOS)]
 
 # --------------------------------------------------------------------------
@@ -109,46 +110,66 @@ df_sess = pd.DataFrame(sess)
 
 # --------------------------------------------------------------------------
 # ABA Versao 1 (qualificação do fluxo — variáveis HubSpot)
+#
+# Modelo de FUNIL: cada contato preenche um PREFIXO dos campos, na ordem do
+# fluxo (quem abandona para de preencher os próximos). Com limiares CRESCENTES,
+# a taxa de preenchimento cai a cada campo — é a "escadinha" da seção 06.
+# Contatos que chegaram a um vendedor (atendidos) vão fundo o bastante para
+# informar o tipo de resíduo — assim a seção 05 não tem "Tipo não informado".
 # --------------------------------------------------------------------------
 CAMINHO_COL = "você é novo por aqui ou já é cliente?"
 TIPOS = ["Industrial", "Hospitalar"]
-CLASSES = ["Perigoso (Classe 1)", "Não perigoso (Classe 2)", "Não sei informar", ""]
-SERVICOS = ["Coleta", "Transporte", "Destinação", ""]
+CLASSES = ["Perigoso (Classe 1)", "Não perigoso (Classe 2)", "Não sei informar"]
+SERVICOS = ["Coleta", "Transporte", "Destinação"]
 
-def maybe(valor, prob):
-    """Retorna valor com probabilidade prob, senão string vazia (campo não preenchido)."""
-    return valor if random.random() < prob else ""
+# Ordem REAL do fluxo (igual a FLOW_NOVO / FLOW_CLI em _analise_comum.py)
+FLOW_NOVO = ["email", "nome", "empresa", "cpf/cnpj", "estado", "cidade",
+             "classe_residuo", "tipo_residuo", "qtd_residuo", "tipo_servico"]
+FLOW_CLI  = ["email", "nome", "cpf/cnpj", "tipo_residuo", "qtd_residuo", "tipo_servico"]
+# limiares crescentes -> preenchimento decrescente (escadinha)
+THR_NOVO = [0.03, 0.10, 0.20, 0.32, 0.43, 0.52, 0.59, 0.65, 0.73, 0.81]
+THR_CLI  = [0.03, 0.13, 0.28, 0.43, 0.60, 0.74]
+
+COLS_VER = ["Celular", CAMINHO_COL, "hubspot_email", "hubspot_firstname",
+            "hubspot_company", "hubspot_cpf", "hubspot_cnpj", "hubspot_state",
+            "hubspot_city", "hubspot_truora_classe_residuo",
+            "hubspot_tipo_de_residuo", "hubspot_truora_quantidade_residuo",
+            "hubspot_truora_tipo_de_servico"]
+
+def preencher_campo(campo, idx, row):
+    if campo == "email":            row["hubspot_email"] = f"contato{idx}@exemplo.com"
+    elif campo == "nome":           row["hubspot_firstname"] = f"Contato {idx}"
+    elif campo == "empresa":        row["hubspot_company"] = f"Empresa {idx}"
+    elif campo == "cpf/cnpj":       row["hubspot_cpf"] = f"000.000.{idx:03d}-00"
+    elif campo == "estado":         row["hubspot_state"] = "SP"
+    elif campo == "cidade":         row["hubspot_city"] = "São Paulo"
+    elif campo == "classe_residuo": row["hubspot_truora_classe_residuo"] = random.choice(CLASSES)
+    elif campo == "tipo_residuo":   row["hubspot_tipo_de_residuo"] = random.choice(TIPOS)
+    elif campo == "qtd_residuo":    row["hubspot_truora_quantidade_residuo"] = f"{random.randint(1, 50)} kg"
+    elif campo == "tipo_servico":   row["hubspot_truora_tipo_de_servico"] = random.choice(SERVICOS)
 
 ver = []
-# todos os telefones do atendimento aparecem aqui (para a S.05 ter dados) + extras
-tel_versao = telefones[:]  # 70
-for idx, tel in enumerate(tel_versao):
+for idx, tel in enumerate(telefones):
+    atendido = idx < N_ATEND                 # os N_ATEND primeiros chegaram a um vendedor
     r = random.random()
-    if r < 0.45:
-        caminho = "Sou novo por aqui"
-    elif r < 0.60:
-        caminho = "Já sou cliente"
+    if atendido:                             # quem foi atendido escolheu um caminho
+        caminho = "Sou novo por aqui" if r < 0.70 else "Já sou cliente"
     else:
-        caminho = ""  # não escolheu caminho
-    novo = caminho == "Sou novo por aqui"
-    cli = caminho == "Já sou cliente"
-    # completude decrescente ao longo do fluxo (mais alta no começo)
-    ver.append({
-        "Celular": tel,
-        CAMINHO_COL: caminho,
-        "hubspot_email": maybe(f"contato{idx}@exemplo.com", 0.86 if novo else (0.6 if cli else 0.2)),
-        "hubspot_firstname": maybe(f"Contato {idx}", 0.83 if novo else (0.58 if cli else 0.18)),
-        "hubspot_company": maybe(f"Empresa {idx}", 0.68 if novo else 0.0),
-        "hubspot_cpf": maybe(f"000.000.{idx:03d}-00", 0.30 if novo else (0.25 if cli else 0.0)),
-        "hubspot_cnpj": maybe(f"00.000.{idx:03d}/0001-00", 0.25 if novo else (0.22 if cli else 0.0)),
-        "hubspot_state": maybe("SP", 0.51 if novo else 0.0),
-        "hubspot_city": maybe("São Paulo", 0.48 if novo else 0.0),
-        "hubspot_tipo_de_residuo": maybe(random.choice(TIPOS), 0.40 if novo else (0.33 if cli else 0.1)),
-        "hubspot_truora_classe_residuo": maybe(random.choice(CLASSES), 0.36 if novo else 0.30),
-        "hubspot_truora_quantidade_residuo": maybe(f"{random.randint(1, 50)} kg", 0.32 if novo else (0.28 if cli else 0.0)),
-        "hubspot_truora_tipo_de_servico": maybe(random.choice(SERVICOS), 0.29 if novo else (0.22 if cli else 0.0)),
-    })
-df_ver = pd.DataFrame(ver)
+        caminho = ("Sou novo por aqui" if r < 0.42
+                   else "Já sou cliente" if r < 0.55 else "")
+    row = {c: "" for c in COLS_VER}
+    row["Celular"] = tel
+    row[CAMINHO_COL] = caminho
+    if caminho:
+        flow = FLOW_NOVO if caminho == "Sou novo por aqui" else FLOW_CLI
+        thr  = THR_NOVO if caminho == "Sou novo por aqui" else THR_CLI
+        # atendidos (q >= 0.67) passam do limiar do tipo de resíduo (0.65 novo / 0.43 cli)
+        q = random.uniform(0.67, 1.0) if atendido else random.uniform(0.0, 0.97)
+        for k, campo in enumerate(flow):
+            if q >= thr[k]:
+                preencher_campo(campo, idx, row)
+    ver.append(row)
+df_ver = pd.DataFrame(ver, columns=COLS_VER)
 
 # --------------------------------------------------------------------------
 # Grava o arquivo unificado
